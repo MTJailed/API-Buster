@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 #Created by Sem Voigtländer
+#Purpose: Parsing MACH-O executables and outputting their structure and symbols
+#Description: machoparse is a wrapper around lief
 import lief
 import argparse
 import os
