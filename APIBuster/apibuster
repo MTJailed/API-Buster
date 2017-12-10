@@ -1,0 +1,107 @@
+#!/bin/bash
+# Created by Sem Voigtlander
+# Name: Private API Detector
+# Description: This script is able to detect the use private API's
+
+# First unzip the ipa
+isMalware=0
+if [ "$#" -ne 1 ]; then
+	echo "Usage: $0 example.ipa"
+	exit
+fi
+input="$1"
+zipfile="$input.zip"
+echo "Analysing $(shasum -a 512 $input)..."
+cp $input $zipfile
+echo "Extracting application..."
+unzip $zipfile > /dev/null
+cd Payload
+cd *.app
+echo "Retrieving main executable..."
+binary=$(pwd | rev | cut -f1 -d'/' - | rev | sed "s/.app//g")
+mkdir -p "../../analysis/$binary"
+rm -rf "../../analysis/$binary/symbols.txt"
+echo "Performing symbol check..."
+echo ""
+symbols=$(machoparse $binary)
+while read symbol; do
+	symbolexists=$(echo $symbols | grep -e $symbol)
+	if [ "$symbolexists" != "" ]; then
+		tput setaf 1
+		isMalware=`expr $isMalware + 1`
+		echo -e "[FOUND]: $(tput bold) $symbol"
+		echo "$symbol" >> "../../analysis/$binary/symbols.txt"
+		tput sgr0
+	fi
+done < ../../src/badsymbols.txt
+echo ""
+echo "Finding private frameworks..."
+strings $binary | grep -e "PrivateFrameworks" > ../../analysis/$binary/privateframeworks.txt
+strings $binary | grep -e "IOKit" > ../../analysis/$binary/privateframeworks.txt
+while read framework; do
+	tput setaf 1
+	echo -e "[FOUND]: $(tput bold) $framework"
+	isMalware=`expr $isMalware + 1`
+	tput sgr0
+done < "../../analysis/$binary/privateframeworks.txt"
+echo "Checking for urls..."
+httpurls=$(strings $binary | grep "http://")
+httpsurls=$(strings $binary | grep "https://")
+ftpurls=$(strings $binary | grep "ftp://")
+appstoreurls=$(strings $binary | grep "itms-services://")
+echo ""
+echo $(echo $httpurls | sed -e 's/[^a-zA-Z0-9:\/.?#&=%\\@]/ /g')
+echo $(echo $httpsurls | sed -e 's/[^a-zA-Z0-9:\/.?#&=%\\@]/ /g')
+echo $(echo $ftpurls | sed -e 's/[^a-zA-Z0-9:\/.?#&=%\\@]/ /g')
+echo $(echo $appstoreurls | sed -e 's/[^a-zA-Z0-9:\/.?#&=%\\@]/ /g')
+echo "Checking for emails..."
+gmail=$(strings $binary | grep "@gmail.com")
+outlook=$(strings $binary | grep "@outlook.com")
+if [ "$gmail" != "" ]; then
+	echo ""
+	echo $gmail
+fi
+if [ "$outlook" != "" ]; then
+	echo $outlook
+	echo ""
+fi
+echo "Checking for entitlements..."
+echo ""
+if [ -f "../../entitlements.plist" ]; then
+	while read entitlement; do
+		entitlementexists=$(echo $entitlement | grep "get-task-allow")
+		if [ "$entitlementexists" != "" ]; then
+			tput setaf 1
+			echo -e "[FOUND]: $(tput bold)$entitlementexists"
+			cat ../../entitlements.plist > "../../analysis/$binary/entitlements.xml"
+			isMalware=`expr $isMalware + 1`
+			tput sgr0
+		fi
+	done < ../../entitlements.plist
+fi
+cd ../../
+rm -rf $zipfile
+rm -rf Payload
+rm -rf __MACOSX
+rm -rf iTunesData
+rm -rf iTunesMetaData.plist
+rm -rf iTunesArtwork
+rm -rf entitlements.plist
+echo ""
+echo "===============CONCLUSION==========="
+if [ "$isMalware" -ne 0 ]; then
+	tput setaf 1
+	echo "$(tput bold)IT'S MALWARE!"
+	tput sgr0
+	tput setaf 3
+	echo "CONFIDENCE: $(tput bold)$isMalware"
+	tput sgr0
+else
+	tput setaf 2
+	tput bold
+	echo ""
+	echo "Nothing malicious found"
+	tput sgr0
+
+fi
+echo "===================================="

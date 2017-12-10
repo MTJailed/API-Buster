@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+import lief
+import argparse
+import os
+parser = argparse.ArgumentParser(description='Dump mach-o symbols.')
+parser.add_argument('binary', metavar='B', type=str, help='path to binary file to be parsed')
+args = parser.parse_args()
+try:
+	binary = lief.parse(args.binary)
+except Exception:
+	print("Not a MACH-O binary")
+	exit(-1)
+print(binary)
