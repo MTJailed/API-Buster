@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#Created by Sem Voigtländer
 import lief
 import argparse
 import os
