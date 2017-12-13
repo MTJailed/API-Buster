@@ -9,5 +9,5 @@ echo "LICENSED under the MIT License"
 echo " "
 
 echo "Installing..."
-cp apibuster /usr/local/bin/apibuster
+cp APIBuster/apibuster /usr/local/bin/apibuster
 chmod +x /usr/local/bin/apibuster
